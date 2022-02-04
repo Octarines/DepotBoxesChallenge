@@ -1,0 +1,14 @@
+<canvas class="canvas"
+        #siteCanvas
+        [width]="workArea?.width"
+        [height]="workArea?.height">
+</canvas>
+<div class="tasks">
+  <div class="site__title">Orange Retailer: MOVEBOXER</div>
+  <div class="tasks__title">Tasks:</div>
+  <div class="tasks__task" *ngFor="let task of tasks">
+    <div>Task: {{task.type}}</div>
+    <div>Box: {{task.boxId ?? 'any'}}</div>
+    <div>Priority: {{task.priority}}</div>
+  </div>
+</div>

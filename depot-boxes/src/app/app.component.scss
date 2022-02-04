@@ -1,0 +1,53 @@
+:host {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+  overflow: hidden;
+  box-sizing: border-box;
+
+  .site__title{
+    min-height: 2em;
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    font-weight: bolder;
+    background-color: orange;
+    border-bottom: 2px solid black;
+  }
+
+  .canvas {
+
+  }
+
+  .tasks {
+    overflow-y: auto;
+    min-height: 0;
+    border-left: 2px solid black;
+    height: 100%;
+
+    .tasks__title {
+      min-height: 2em;
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      font-weight: bold;
+      background-color: lightgray;
+      border-bottom: 2px solid black;
+    }
+
+    .tasks__task {
+      box-sizing: border-box;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      border-bottom: 1px solid black;
+      height: 2em;
+    }
+  }
+}
