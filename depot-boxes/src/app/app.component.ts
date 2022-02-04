@@ -1,6 +1,8 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { CursorError } from '@angular/compiler/src/ml_parser/lexer';
+import { AfterViewInit, Component, ElementRef, getPlatform, OnInit, ViewChild } from '@angular/core';
 import { mergeMap } from 'rxjs';
 import { BoxService } from './box.service';
+import { CalculationService } from './calculation.service';
 import { IBoxLocation } from './interfaces/box-location.interface';
 import { IBox } from './interfaces/box.interface';
 import { ILocation } from './interfaces/location.interface';
@@ -31,7 +33,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   boxes: IBox[];
   tasks: ITask[];
 
-  constructor(private _siteService: SiteService, private _boxService: BoxService){}
+  constructor(
+    private _siteService: SiteService,
+    private _boxService: BoxService,
+    private _calculationService: CalculationService){}
 
   ngOnInit(): void {
     this._siteService.getWorkArea()
@@ -58,11 +63,25 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.boxes = boxData.boxes;
         this.renderBoxes();
         this.tasks = boxData.tasks.sort((a,b) => a.priority > b.priority ? 1 : -1);
+
+        this.initialiseTasks();
+        // this.moveBoxes();
       });
   }
 
   ngAfterViewInit(): void {
     this.canvasContext = this.siteCanvas.nativeElement.getContext('2d');
+  }
+
+  initialiseTasks() {
+    this.calculateDistances(this.tasks.filter(task => !!task.boxId));
+  }
+
+  intialiseLocations() {
+    this.locations.forEach(location => {
+      this._calculationService.calculatePathNode(location, this.pathways);
+      this.renderLocationPathNode(location.pathNode);
+    });
   }
 
   renderSite() {
@@ -170,9 +189,28 @@ export class AppComponent implements OnInit, AfterViewInit {
     })
   }
 
+  renderLocationPathNode(node: ILocation) {
+    this.canvasContext.fillStyle = "purple";
+    this.canvasContext?.fillRect(node.x - 5, node.y - 5, 10, 10);
+  }
+
   renderBox(box: IBox, location: IBoxLocation) {
     this.canvasContext.lineWidth = 2;
-    this.canvasContext.fillStyle = "purple";
+    let boxColour: string;
+
+    switch(box.contents){
+      case 'empty':
+        boxColour = 'white';
+        break;
+      case 'full':
+        boxColour = 'green';
+        break;
+      case 'waste':
+        boxColour = 'red';
+        break;
+    }
+
+    this.canvasContext.fillStyle = boxColour;
     const boxWidth = 20;
     const boxHeight = 20;
 
@@ -181,5 +219,34 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     this.canvasContext?.fillRect(boxXPosition, boxYPosition, boxWidth, boxHeight);
     this.canvasContext?.strokeRect(boxXPosition, boxYPosition, boxWidth, boxHeight);
+  }
+
+  calculateDistances(tasks: ITask[]) {
+    tasks.forEach(task => {
+      switch(task.type) {
+        case 'clear':
+          const box = this.boxes.find(b => b.id === task.boxId);
+          const bay = this.locations.find(l => l.id === box.locationId);
+
+          let shortestPath: number;
+          let closestBay: IBoxLocation;
+
+          this.locations.filter(location => location.type === "parking").forEach(l => {
+            const xDistance = Math.abs(l.x - bay.x);
+            const yDistance = Math.abs(l.y - bay.y);
+
+            const distance = Math.sqrt(Math.pow(xDistance, 2) + Math.pow(yDistance, 2));
+
+            if(!!!shortestPath || distance < shortestPath) {
+              shortestPath = distance;
+              closestBay = l;
+            }
+          })
+
+          task.distance = shortestPath;
+          task.targetBay = closestBay
+          break;
+      }
+    })
   }
 }
