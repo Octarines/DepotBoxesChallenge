@@ -22,6 +22,7 @@ namespace depot_boxes_server.Queues
 
     }
 
+
     public class TaskQueue
     {
 
@@ -29,7 +30,7 @@ namespace depot_boxes_server.Queues
 
         public TaskQueue()
         {
-            _priorityQueue = new PriorityQueue<MoveTask, MoveTask>();
+            _priorityQueue = new PriorityQueue<MoveTask, MoveTask>(new MoveTaskComparer());
         }
 
         public void AddTask(MoveTask task)
@@ -39,8 +40,6 @@ namespace depot_boxes_server.Queues
 
         public void AddTasks(IEnumerable<MoveTask> tasks)
         {
-            tasks.ElementAt(200).Priority = 1;
-            tasks.ElementAt(200).Description = "Bob";
             foreach(MoveTask task in tasks)
             {
                 AddTask(task);

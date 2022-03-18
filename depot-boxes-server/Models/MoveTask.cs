@@ -2,7 +2,7 @@
 
 namespace depot_boxes_server.Models
 {
-    public class MoveTask: IComparable<MoveTask>
+    public class MoveTask
     {
 
         [JsonProperty("description")]
@@ -32,6 +32,7 @@ namespace depot_boxes_server.Models
         [JsonProperty("isActive")]
         public bool IsActive { get; set; }
 
+        /*
         public int CompareTo(MoveTask compare)
         {
             int retval = 1;
@@ -45,6 +46,7 @@ namespace depot_boxes_server.Models
             }
             return retval;
         }
+        */
 
     }
 }
