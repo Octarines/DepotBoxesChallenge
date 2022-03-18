@@ -56,6 +56,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         mergeMap(pathways => {
           this.pathways = pathways;
           this.renderSite();
+          this.intialiseLocations();
           return this._boxService.getInitialBoxData();
         })
       )
