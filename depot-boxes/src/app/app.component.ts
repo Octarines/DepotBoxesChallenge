@@ -32,6 +32,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   boxes: IBox[];
   tasks: ITask[];
+  currentTask: ITask;
 
   constructor(
     private _siteService: SiteService,
@@ -63,10 +64,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       .subscribe(boxData => {
         this.boxes = boxData.boxes;
         this.renderBoxes();
-        this.tasks = boxData.tasks.sort((a,b) => a.priority > b.priority ? 1 : -1);
+        this.tasks = boxData.tasks;
+        this.sortTasks();
 
         this.initialiseTasks();
-        // this.moveBoxes();
+        this.startMovement();
       });
   }
 
@@ -75,7 +77,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   initialiseTasks() {
-    this.calculateDistances(this.tasks.filter(task => !!task.boxId));
+    this.tasks.filter(x => x.type === 'clear').forEach( x => this.findClosestBay(x, 'parking'));
   }
 
   intialiseLocations() {
@@ -182,10 +184,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   renderBoxes() {
-    this.boxes.forEach(box => {
+    this.boxes.filter(x => this.currentTask?.boxId !== x.id).forEach(box => {
       const boxLocation = this.locations.find(x => x.id === box.locationId);
       if(boxLocation) {
-        this.renderBox(box, boxLocation);
+        this.renderBox(box, boxLocation.x + (boxLocation.width/2), boxLocation.y + (boxLocation.height/2));
       }
     })
   }
@@ -195,7 +197,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.canvasContext?.fillRect(node.x - 5, node.y - 5, 10, 10);
   }
 
-  renderBox(box: IBox, location: IBoxLocation) {
+  renderBox(box: IBox, x: number, y: number) {
     this.canvasContext.lineWidth = 2;
     let boxColour: string;
 
@@ -215,39 +217,177 @@ export class AppComponent implements OnInit, AfterViewInit {
     const boxWidth = 20;
     const boxHeight = 20;
 
-    const boxXPosition = location.x + (location.width/2) - (boxWidth/2);
-    const boxYPosition = location.y + (location.height/2) - (boxHeight/2);
+    const boxXPosition = x - (boxWidth/2);
+    const boxYPosition = y - (boxHeight/2);
 
     this.canvasContext?.fillRect(boxXPosition, boxYPosition, boxWidth, boxHeight);
     this.canvasContext?.strokeRect(boxXPosition, boxYPosition, boxWidth, boxHeight);
   }
 
-  calculateDistances(tasks: ITask[]) {
-    tasks.forEach(task => {
-      switch(task.type) {
-        case 'clear':
-          const box = this.boxes.find(b => b.id === task.boxId);
-          const bay = this.locations.find(l => l.id === box.locationId);
+  sortTasks() {
+    this.tasks.sort((a: ITask,b: ITask) => {
+      if(a.priority > b.priority) return 1;
+      if(a.priority < b.priority) return -1;
 
-          let shortestPath: number;
-          let closestBay: IBoxLocation;
+      if(!!a.targetTime && !!b.targetTime) {
+        return (new Date(a.targetTime)).getTime() - (new Date(b.targetTime)).getTime();
+      }
 
-          this.locations.filter(location => location.type === "parking").forEach(l => {
-            const xDistance = Math.abs(l.x - bay.x);
-            const yDistance = Math.abs(l.y - bay.y);
+      return 0;
+    });
+  }
 
-            const distance = Math.sqrt(Math.pow(xDistance, 2) + Math.pow(yDistance, 2));
+  findClosestBay(task: ITask, targetType: string) {
+    const box = this.boxes.find(b => b.id === task.boxId);
+    const bay = this.locations.find(l => l.id === box.locationId);
 
-            if(!!!shortestPath || distance < shortestPath) {
-              shortestPath = distance;
-              closestBay = l;
-            }
-          })
+    let shortestPath: number;
+    let closestBay: IBoxLocation;
 
-          task.distance = shortestPath;
-          task.targetBay = closestBay
-          break;
+    this.locations.filter(location =>
+      location.type === targetType &&
+      !!!this.boxes.filter(x => x.locationId === location.id).length
+      ).forEach(l => {
+      const xDistance = Math.abs(l.x - bay.x);
+      const yDistance = Math.abs(l.y - bay.y);
+
+      const distance = Math.sqrt(Math.pow(xDistance, 2) + Math.pow(yDistance, 2));
+
+      if(!!!shortestPath || distance < shortestPath) {
+        shortestPath = distance;
+        closestBay = l;
       }
     })
+
+    task.distance = shortestPath;
+    task.targetBay = closestBay;
+  }
+
+  async startMovement() {
+    while(!!this.tasks.length) {
+      await this.moveBoxes();
+    }
+  }
+
+  async moveBoxes(){
+    this.currentTask = this.tasks.shift();
+
+    if(!!this.currentTask) {
+      if(!!!this.currentTask.boxId) {
+        // add logic to handle instance of no empty boxes
+
+        let emptyBox = this.boxes.find(x => x.contents === 'empty' && !this.tasks.map(y => y.boxId).includes(x.id))
+
+        if(!!!emptyBox) {
+          return;
+        }
+
+        this.currentTask.boxId = emptyBox.id;
+      }
+
+      // add logic to handle instance of no viable locations
+      if(!!!this.currentTask.targetBay) {
+        switch(this.currentTask.type) {
+          case 'load':
+            this.findClosestBay(this.currentTask, 'bay');
+            break;
+          case 'empty':
+            this.findClosestBay(this.currentTask, 'bay');
+            break;
+          case 'clear':
+            this.findClosestBay(this.currentTask, 'parking');
+            break;
+        }
+      }
+
+      if(!!!this.currentTask.targetBay){
+        return;
+      }
+
+      // skip boxes that dont fit current logic
+      await this.moveBox(this.currentTask.boxId, this.currentTask.targetBay.id, this.currentTask);
+    }
+  }
+
+  async moveBox(boxId: number, destinationId: number, task: ITask) {
+
+    let currentBox = this.boxes.find(x => x.id === boxId);
+
+    let currentLocation = this.locations.find(x => x.id === currentBox.id);
+    let destination = this.locations.find(x => x.id === destinationId);
+
+    await this.animateBox(currentBox, currentLocation, currentLocation.pathNode);
+
+    //check if an intermediate node is needed (the two locations arent on the same path)
+    if(currentLocation.pathNode.x !== destination.pathNode.x && currentLocation.pathNode.y !== destination.pathNode.y){
+
+      let intermediateNode = this.nodes.find(x =>
+        (x.x === currentLocation.pathNode.x || x.x === destination.pathNode.x) &&
+        (x.y === currentLocation.pathNode.y || x.y === destination.pathNode.y)
+        );
+
+      let intermediateNodeLocation = {
+        x: intermediateNode.x,
+        y: intermediateNode.y
+      };
+
+      await this.animateBox(currentBox, currentLocation.pathNode, intermediateNodeLocation);
+
+      await this.animateBox(currentBox, intermediateNodeLocation, destination.pathNode);
+
+    } else {
+      await this.animateBox(currentBox, currentLocation.pathNode, destination.pathNode);
+    }
+
+    await this.animateBox(currentBox, destination.pathNode, destination);
+
+    //once the box has reached its destination
+    currentBox.locationId = destinationId;
+
+    switch(task.type) {
+      case 'load':
+        currentBox.contents = 'full'
+        break;
+      case 'empty':
+        currentBox.contents = 'empty'
+        break;
+      case 'clear':
+        break;
+    }
+  }
+
+  async animateBox(box: IBox, currentLocation: ILocation, destination: ILocation) {
+
+    let currentXOffset = !!currentLocation.width ? currentLocation.width / 2 : 0;
+    let currentYOffset = !!currentLocation.height ? currentLocation.height / 2 : 0;
+    let destinationXOffset = !!destination.width ? destination.width / 2 : 0;
+    let destinationYOffset = !!destination.height ? destination.height / 2 : 0;
+
+    let currentX = currentLocation.x + currentXOffset;
+    let currentY = currentLocation.y + currentYOffset;
+    let destinationX = destination.x + destinationXOffset;
+    let destinationY = destination.y + destinationYOffset;
+
+    while(currentX !== destinationX || currentY !== destinationY) {
+
+      if(currentX < destinationX) {
+        currentX ++
+      } else if( currentX > destinationX) {
+        currentX --;
+      }
+
+      if(currentY < destinationY) {
+        currentY ++
+      } else if( currentY > destinationY) {
+        currentY --;
+      }
+
+      this.canvasContext.clearRect(0, 0, this.siteCanvas.nativeElement.width, this.siteCanvas.nativeElement.height);
+      this.renderSite();
+      this.renderBoxes();
+      this.renderBox(box, currentX, currentY);
+
+      await new Promise(f => setTimeout(f, 5));
+    }
   }
 }

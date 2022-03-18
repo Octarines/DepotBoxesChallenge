@@ -5,11 +5,13 @@
 </canvas>
 <div class="tasks">
   <div class="site__title">Orange Retailer: MOVEBOXER</div>
-  <div class="tasks__title">Tasks:</div>
-  <div class="tasks__task" *ngFor="let task of tasks">
-    <div>Task: {{task.type}}</div>
-    <div>Box: {{task.boxId ?? 'any'}}</div>
-    <div>Priority: {{task.priority}}</div>
-    <div>Dest.: {{task.targetBay?.id}}</div>
-  </div>
+  <div class="tasks__title">Tasks Remaining: {{tasks?.length}}</div>
+  <app-task *ngIf="!!currentTask"
+    class="tasks__current"
+    [task]="currentTask">
+  </app-task>
+  <app-task class="tasks__task"
+    *ngFor="let task of tasks"
+    [task]="task">
+  </app-task>
 </div>
