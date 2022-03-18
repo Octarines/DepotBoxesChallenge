@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using depot_boxes_server.Queues;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -13,6 +14,8 @@ namespace depot_boxes_server.Controllers
     [ApiController]
     public class DepotBoxesController : ControllerBase
     {
+
+        private TaskQueue _queue = new TaskQueue();
         
         [HttpGet]
         [Route("InitialTasks")]
@@ -27,6 +30,9 @@ namespace depot_boxes_server.Controllers
                 JObject jobject = JObject.Parse(contents);
                 tasks = jobject["tasks"].Value<JArray>().ToObject<List<MoveTask>>();
                 IList<Box> boxes = jobject["boxes"].Value<JArray>().ToObject<List<Box>>();
+                _queue.AddTasks(tasks);
+
+                var t = _queue.GetNextTask();
             }
             return tasks;
         }
