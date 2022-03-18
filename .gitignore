@@ -1,0 +1,10 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/depot-boxes-server/bin/Debug/net6.0
+/depot-boxes-server/.vs/depot-boxes-server/DesignTimeBuild
+/depot-boxes-server/obj
+/~$Plan.pptx
+/depot-boxes-server/.vs/depot-boxes-server/v17
+/.vs
