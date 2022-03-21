@@ -9,14 +9,18 @@ namespace depot_boxes_server.Queues
         public int Compare(MoveTask x, MoveTask y)
         {
             int retval = 0;
-            if(x.Priority < y.Priority)
+            if (x != null && y != null)
             {
-                retval = -1;
+                if (x.Priority < y.Priority)
+                {
+                    retval = -1;
+                }
+                else if (x.Priority > y.Priority)
+                {
+                    retval = 1;
+                }
             }
-            else if(x.Priority > y.Priority)
-            {
-                retval = 1;
-            }
+
             return retval;
         }
 

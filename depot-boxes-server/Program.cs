@@ -7,7 +7,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Configuration.AddJsonFile("appsettings.json");
+IConfiguration config = builder.Configuration.AddJsonFile("appsettings.json").Build();
+builder.Services.AddSingleton(provider => config);
 
 var app = builder.Build();
 

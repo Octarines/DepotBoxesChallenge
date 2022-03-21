@@ -15,21 +15,30 @@ namespace depot_boxes_server.Controllers
     public class DepotBoxesController : ControllerBase
     {
 
+        private readonly IConfiguration _configuration;
         private TaskQueue _queue = new TaskQueue();
+
+        public DepotBoxesController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
         
         [HttpGet]
         [Route("InitialTasks")]
         public async Task<IEnumerable<MoveTask>> InitialTasks()
         {
             IList<MoveTask> tasks;
-            var buffer = new byte[16384];
             using(HttpClient client = new HttpClient())
             {
-                HttpResponseMessage response = await client.GetAsync("https://boxmoveservice.azurewebsites.net/api/Box");
+                HttpResponseMessage response = await client.GetAsync(_configuration.GetValue<string>("WebSockets:InitialBoxUrl"));
                 var contents = await response.Content.ReadAsStringAsync();
                 JObject jobject = JObject.Parse(contents);
                 tasks = jobject["tasks"].Value<JArray>().ToObject<List<MoveTask>>();
                 IList<Box> boxes = jobject["boxes"].Value<JArray>().ToObject<List<Box>>();
+
+                tasks.ElementAt(100).Priority = 1;
+                tasks.ElementAt(100).Description = "bob";
+
                 _queue.AddTasks(tasks);
 
                 var t = _queue.GetNextTask();
